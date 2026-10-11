@@ -1,6 +1,6 @@
 ---
 title: Delight
-suggested_schedule: "0 12 * * *"   # local time; a lunchtime lift
+suggested_schedule: "0 15 * * *"   # OPTIONAL extra pass; delight is already covered by Feed Refresh (01)
 ---
 
 # Delight

@@ -33,7 +33,7 @@ Every minute spent in the feed should leave Mitch more informed, entertained or 
 
 1. Fetch the **brief** by running exactly: `node scripts/brief.mjs --short` (or without `--short` for everything). Credentials are loaded for you from the env file, so **do not read, source, print or handle the env file or token yourself**. In local demo mode, Mitch pastes the brief from Settings instead.
 2. Obey it, in this order of authority: **`readerRequests` and `exclusions`** (hard rules) > locked or explicit interests > preferences > inferred interests.
-3. Check `recentlyPublished` and `inventory`. If the feed is healthy and nothing is genuinely worth adding, **publish nothing and say so.** Never produce a fixed number of pieces because a schedule fired.
+3. Check `recentlyPublished` and `inventory`. The **Feed Refresh** task (three runs a day) has a volume target of about 20 items per run; every other task publishes only what's genuinely worth adding, and **publishing nothing is fine**. Whatever the target, never pad with filler, duplicates or stale news to hit a number: publish fewer and say why.
 
 ## Writing standards
 

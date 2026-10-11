@@ -11,10 +11,10 @@ The brief asks not to assume that a connection in one Claude environment exists 
 - You already run ~19 tasks this way (see `Documents\personal-ai\scheduled-tasks`).
 
 **Not yet verified. Do these before trusting anything:**
-1. Can a scheduled run reach the internet and run shell commands (`curl` or `node`) to POST to the endpoint? Create the Daily Discovery task, press **Run now** once, and read the summary. If it can't, the `inbox/` file bridge exists for exactly this.
+1. Can a scheduled run reach the internet and run shell commands (`curl` or `node`) to POST to the endpoint? Create the Feed Refresh task, press **Run now** once, and read the summary. If it can't, the `inbox/` file bridge exists for exactly this.
 2. Do the env vars exist in the task's shell? Scheduled tasks don't inherit your terminal. Either put `PENNY_INGEST_URL`/`PENNY_INGEST_TOKEN`/`PENNY_BRIEF_URL` in a local file the prompt reads (kept out of the repo, e.g. `C:\Users\mitch\Documents\personal-ai\penny-feed.env`) and mention its path in the task prompt, or paste them into the prompt (less good: the token is then stored in the task file).
 
-I have **not** created any scheduled tasks. They're persistent, outward-facing configuration, so that's your call. To install one: in Claude, ask it to create a scheduled task using `editor/01-daily-discovery.md` as the prompt body, with the suggested cron. Start with just Daily Discovery and Editorial Review and watch a few runs.
+I have **not** created any scheduled tasks. They're persistent, outward-facing configuration, so that's your call. To install one: in Claude, ask it to create a scheduled task using `editor/01-daily-discovery.md` (the Feed Refresh prompt) as the prompt body, with the suggested cron. Start with just Feed Refresh (`01`, three times a day, ~20 items a run) and Editorial Review and watch a few runs.
 
 ## Gmail (Inbox Discovery)
 

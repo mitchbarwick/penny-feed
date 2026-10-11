@@ -80,7 +80,7 @@ export function buildBrief(state: AppState, items: Item[], series: Series[], now
       .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
       .slice(0, 120)
       .map((i) => ({ id: i.id, headline: i.headline, format: i.format, topics: i.topics, publishedAt: i.publishedAt })),
-    inventory: { unread: unread.length, unreadByFormat, targetUnread: "about 12-25 unread standalone items; publish nothing if the feed is already healthy and nothing is genuinely worth adding" },
+    inventory: { unread: unread.length, unreadByFormat, targetUnread: "Feed Refresh runs three times a day and publishes about 20 items each time, so expect roughly 20-60 unread at any moment. Other tasks publish only what is genuinely worth adding." },
     recentFeedback: state.feedback
       .filter((f) => f.type !== "reader-request")
       .slice(0, 40)

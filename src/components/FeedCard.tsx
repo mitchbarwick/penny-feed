@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import type { FeedEntry } from "@/lib/curation";
 import { seriesProgress } from "@/lib/curation";
 import { FORMAT_LABEL, type Item } from "@/lib/types";
@@ -11,7 +11,7 @@ import { useActions } from "@/lib/actions";
 import { nowIso } from "@/lib/ledger";
 import { Prose } from "./Prose";
 import { Sources } from "./Sources";
-import { IconBookmark, IconMore, IconChevron } from "./Icons";
+import { IconBookmark, IconMore, IconChevron, IconClose } from "./Icons";
 import { Cover } from "./Doodle";
 
 const INLINE: Item["format"][] = ["update", "explainer", "rabbit_hole", "circle"];
@@ -63,6 +63,42 @@ export function FeedCard({ entry, onSeen }: { entry: FeedEntry; onSeen?: (key: s
   const ref = useRef<HTMLElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
+  // Swipe either way to dismiss (touch/pen only; vertical scrolling is untouched). Series chapters are
+  // exempt: skipping one would silently stall the series, which has its own "Not for me".
+  const canDismiss = item.format !== "series_chapter";
+  const [dx, setDx] = useState(0);
+  const [leaving, setLeaving] = useState<-1 | 1 | 0>(0);
+  const drag = useRef<{ id: number; x: number; y: number; active: boolean } | null>(null);
+  const THRESHOLD = 96;
+
+  const sendAway = useCallback((dir: -1 | 1) => {
+    setLeaving(dir);
+    window.setTimeout(() => dismiss(item), 200);
+  }, [dismiss, item]);
+
+  const onPointerDown = (e: RPointerEvent) => {
+    if (!canDismiss || open || menu || leaving || e.pointerType === "mouse") return;
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false };
+  };
+  const onPointerMove = (e: RPointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    const mx = e.clientX - d.x;
+    const my = e.clientY - d.y;
+    if (!d.active) {
+      if (Math.abs(mx) > 12 && Math.abs(mx) > Math.abs(my) * 1.6) d.active = true;
+      else return;
+    }
+    setDx(mx);
+  };
+  const endDrag = (e: RPointerEvent, cancelled = false) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    if (d.active && !cancelled && Math.abs(dx) >= THRESHOLD) sendAway(dx < 0 ? -1 : 1);
+    else setDx(0);
+  };
+
   const saved = state.saved.includes(item.id);
   const progress = state.progress[item.id];
   const isRead = progress?.status === "read";
@@ -92,7 +128,24 @@ export function FeedCard({ entry, onSeen }: { entry: FeedEntry; onSeen?: (key: s
   const away = seriesInfo?.lastOpened ? (Date.now() - Date.parse(seriesInfo.lastOpened)) / 86_400_000 : 0;
 
   return (
-    <article ref={ref} data-key={entry.key} className={`anim-rise py-9 transition-opacity ${isRead && !open ? "opacity-60" : ""}`}>
+    <article ref={ref} data-key={entry.key} className={`anim-rise relative overflow-hidden py-9 ${isRead && !open ? "opacity-60" : ""}`}>
+      {canDismiss && (dx !== 0 || leaving !== 0) && (
+        <div aria-hidden className={`pointer-events-none absolute inset-y-0 flex items-center px-4 text-sm font-semibold text-muted ${(leaving || dx) < 0 ? "right-0" : "left-0"}`} style={{ opacity: leaving ? 1 : Math.min(1, Math.abs(dx) / THRESHOLD) }}>
+          Not for me
+        </div>
+      )}
+      <div
+        style={{
+          transform: leaving ? `translateX(${leaving * 110}%)` : dx ? `translateX(${dx}px)` : undefined,
+          opacity: leaving ? 0 : dx ? 1 - Math.min(0.5, Math.abs(dx) / (THRESHOLD * 3)) : undefined,
+          transition: drag.current?.active ? "none" : "transform 0.2s ease, opacity 0.2s ease",
+          touchAction: canDismiss && !open && !menu ? "pan-y" : undefined,
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={(e) => endDrag(e)}
+        onPointerCancel={(e) => endDrag(e, true)}
+      >
       <Meta item={item} extra={item.format === "series_chapter" && series ? `Chapter ${item.chapter} of ${series.totalChapters}` : item.sample ? "Sample" : undefined} />
 
       {item.format === "series_chapter" && series && (
@@ -147,6 +200,11 @@ export function FeedCard({ entry, onSeen }: { entry: FeedEntry; onSeen?: (key: s
           <button aria-label={saved ? "Remove from library" : "Save to library"} aria-pressed={saved} className={`grid size-11 place-items-center rounded-full hover:bg-surface-2 ${saved ? "text-terra" : ""}`} onClick={() => toggleSave(item)}>
             <IconBookmark on={saved} />
           </button>
+          {canDismiss && (
+            <button aria-label="Not interested: dismiss this story" className="grid size-11 place-items-center rounded-full hover:bg-surface-2" onClick={() => sendAway(-1)}>
+              <IconClose />
+            </button>
+          )}
           <button aria-label="More options" aria-expanded={menu} className="grid size-11 place-items-center rounded-full hover:bg-surface-2" onClick={() => setMenu((m) => !m)}>
             <IconMore />
           </button>
@@ -163,7 +221,7 @@ export function FeedCard({ entry, onSeen }: { entry: FeedEntry; onSeen?: (key: s
               <button className="btn btn-sm" onClick={() => react(item, "follow", topic)} disabled={followed}>{followed ? `Following ${topic}` : `Follow ${topic}`}</button>
               <button className="btn btn-sm" onClick={() => react(item, "mute", topic)}>Mute {topic}</button>
               {item.sources[0] && !item.sample && <a className="btn btn-sm" href={item.sources[0].url} target="_blank" rel="noopener noreferrer nofollow">Original source</a>}
-              <button className="btn btn-sm btn-quiet" onClick={() => dismiss(item)}>Dismiss</button>
+              {canDismiss && <button className="btn btn-sm btn-quiet" onClick={() => dismiss(item)}>Dismiss</button>}
             </div>
             {why && (
               <div className="anim-rise text-[0.92rem] leading-snug text-ink-soft">
@@ -176,6 +234,7 @@ export function FeedCard({ entry, onSeen }: { entry: FeedEntry; onSeen?: (key: s
             )}
           </div>
         </div>
+      </div>
       </div>
     </article>
   );
