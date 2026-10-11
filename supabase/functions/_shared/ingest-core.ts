@@ -145,6 +145,8 @@ export function ingest(
       .map((i) => ({
         id: i.id,
         headline: i.headline,
+        dek: i.dek,
+        topics: i.topics,
         sourceUrls: i.sources.map((s) => s.url),
         seriesId: i.seriesId,
         chapter: i.chapter,
@@ -178,7 +180,7 @@ export function ingest(
     itemsById.set(i.id, next);
     // Later items in the same payload must dedupe against this one.
     ctx.existing.push({
-      id: next.id, headline: next.headline, sourceUrls: next.sources.map((s) => s.url),
+      id: next.id, headline: next.headline, dek: next.dek, topics: next.topics, sourceUrls: next.sources.map((s) => s.url),
       seriesId: next.seriesId, chapter: next.chapter,
     });
     result.accepted.push({ id: i.id, action: prev ? "updated" : "created" });

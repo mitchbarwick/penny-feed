@@ -179,3 +179,34 @@ describe("failed ingestion recovery", () => {
     expect(good.upsertItems).toHaveLength(1);
   });
 });
+
+describe("same story, different sources", () => {
+  const A = goodItem({
+    id: "consciousness-duel", format: "rabbit_hole", headline: "Two rival theories of consciousness were made to bet on the outcome. Neither won",
+    topics: ["Mind and consciousness", "Science and medicine", "Philosophy and ideas"],
+    body: goodItem().body + " " + goodItem().body,
+    sources: [{ url: "https://example.com/study-a", name: "A", type: "academic" }],
+  });
+  const first = () => run(payload([A])).upsertItems;
+
+  it("rejects a retelling with different sources, similar wording and the same topics", () => {
+    const B = goodItem({
+      id: "consciousness-test", format: "rabbit_hole", headline: "Two theories of consciousness were put to a fair test. Neither won, and the fight got nastier",
+      topics: ["Mind and consciousness", "Science and medicine", "Philosophy and ideas"],
+      body: goodItem().body + " " + goodItem().body,
+      sources: [{ url: "https://other.example.org/report", name: "B", type: "reporting" }],
+    });
+    const o = run(payload([B]), { items: first(), series: [] });
+    expect(o.result.rejected[0].reasons.join()).toMatch(/likely the same story/);
+  });
+  it("lets a genuinely different piece on the same broad subject through", () => {
+    const C = goodItem({
+      id: "anaesthesia-awareness", format: "rabbit_hole", headline: "What anaesthesia reveals about where consciousness switches off",
+      topics: ["Mind and consciousness", "Science and medicine"],
+      body: goodItem().body + " " + goodItem().body,
+      sources: [{ url: "https://example.com/anaesthesia", name: "C", type: "academic" }],
+    });
+    const o = run(payload([C]), { items: first(), series: [] });
+    expect(o.result.accepted).toHaveLength(1);
+  });
+});

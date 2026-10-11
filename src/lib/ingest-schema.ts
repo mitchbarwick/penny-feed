@@ -139,6 +139,8 @@ export function canonicalUrl(u: string): string {
 export interface ExistingRef {
   id: string;
   headline: string;
+  dek?: string;
+  topics?: string[];
   sourceUrls: string[];
   seriesId?: string;
   chapter?: number;
@@ -153,6 +155,51 @@ export interface ValidationContext {
 }
 
 const DUPLICATE_THRESHOLD = 0.82;
+
+const STOP = new Set(
+  "about after again also been being between both could does during each even ever from have here into just like more most much only other over said same some such than that their them then there these they this those through very were what when where which while will with without would your".split(" "),
+);
+
+/** Significant words of a headline + subtitle: lowercased, 4+ letters, no filler. */
+function keywords(s: string): Set<string> {
+  return new Set(
+    normaliseTitle(s)
+      .split(" ")
+      .filter((w) => w.length >= 4 && !STOP.has(w))
+      .map((w) => w.replace(/(ing|ed|es|s)$/, "")),
+  );
+}
+
+/** Overlap (Jaccard) of the significant words in two headline+dek pairs. */
+export function storyOverlap(a: string, b: string): number {
+  const A = keywords(a);
+  const B = keywords(b);
+  if (!A.size || !B.size) return 0;
+  let hit = 0;
+  for (const w of A) if (B.has(w)) hit++;
+  return hit / (A.size + B.size - hit);
+}
+
+/**
+ * "Same story, different sources": wording, topics and sources are compared together.
+ * It's a safety net behind the editor's own judgement, tuned to avoid blocking a genuinely
+ * different piece on the same broad subject.
+ */
+export function looksLikeSameStory(
+  item: Pick<IngestItem, "headline" | "dek" | "topics" | "sources">,
+  e: ExistingRef,
+): string | null {
+  const overlap = storyOverlap(`${item.headline} ${item.dek ?? ""}`, `${e.headline} ${e.dek ?? ""}`);
+  const mine = new Set(item.sources.map((s) => canonicalUrl(s.url)));
+  const sharedSource = e.sourceUrls.some((u) => mine.has(canonicalUrl(u)));
+  const myTopics = new Set(item.topics.map((t) => t.toLowerCase()));
+  const sharedTopics = (e.topics ?? []).filter((t) => myTopics.has(t.toLowerCase())).length;
+  if (overlap >= 0.5) return "reads like the same story";
+  if (overlap >= 0.28 && sharedTopics >= 2) return "similar wording and the same topics";
+  if (overlap >= 0.2 && sharedTopics >= 3) return "similar wording and three or more shared topics";
+  if (overlap >= 0.3 && sharedSource) return "shares a source and similar wording";
+  return null;
+}
 
 /**
  * The automated pass that sits between "drafted" and "published".
@@ -217,6 +264,10 @@ export function validateItem(item: IngestItem, ctx: ValidationContext): string[]
       why.push(`duplicate of ${e.id} (same series chapter)`);
     if (!isSeries && similarity(e.headline, item.headline) >= DUPLICATE_THRESHOLD)
       why.push(`near-duplicate headline of ${e.id}`);
+    else if (!isSeries && item.format !== "circle") {
+      const same = looksLikeSameStory(item, e);
+      if (same) why.push(`likely the same story as ${e.id} (${same})`);
+    }
     if (!isSeries && item.format !== "circle") {
       const mine = new Set(item.sources.map((s) => canonicalUrl(s.url)));
       const shared = e.sourceUrls.filter((u) => mine.has(canonicalUrl(u)));
