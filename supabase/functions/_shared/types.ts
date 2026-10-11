@@ -198,6 +198,8 @@ export interface Preferences {
 
 export interface Person {
   id: string;
+  /** friend = someone you know; public = a public figure whose noteworthy news you'd like to hear. Default friend. */
+  kind?: "friend" | "public";
   name: string;
   relationship: string;
   /** 1 close .. 3 acquaintance */

@@ -29,6 +29,19 @@ This competes with scrolling social feeds for Mitch's spare five minutes. If a p
 
 Never trade truth for fun: no invented details, and no mocking of real, identifiable private people.
 
+## Not the obvious story (reader feedback)
+
+Mitch's verdict on the first batches: too many things everyone already knows. The **Emu War**, **wombats' cube-shaped poo**, the "Bird of the Year" kind of listicle fact: these are the first thing a search returns, and a curious adult has met them. Before writing any story, ask: **would a curious, well-read person already know this?** If yes, skip it or find the surprising layer underneath that almost nobody knows. Prefer the second, third and fourth page of the search results, primary sources, specialist writing, books, interviews, and stories with a named, specific, odd character at the centre.
+- Never pick a story because it's a famous "fun fact". Banned unless you have a genuinely new angle: Emu War, wombat poo, "the Great Stink", Tesla vs Edison, Cleopatra and the pyramids timeline, octopus hearts, honey never spoils, Napoleon and the rabbits, and similar internet staples.
+- What he liked: **Eric the Eel**. That's the model: a specific, strange, character-led story with real stakes and an ending, told simply, where the weirdness does the work. More of that: unusual people, animals and objects with a real arc.
+
+## Humour: let the facts be funny
+
+Humour must come from the material and from deadpan precision, not from performing quirkiness. A forced joke is worse than none. Rules:
+- **No try-hard whimsy.** No "plot twist!", no stacked exclamation marks, no nudge-nudge asides in every paragraph, no cartoon voice. One dry line that lands beats five that strain.
+- Be funny the way a good friend telling a story is funny: understatement, a well-placed specific, the straight-faced punchline. If the story isn't funny, tell it straight; it can still be delightful.
+- Cut any joke you'd have to explain, and any aside that exists only to signal "this is quirky".
+
 ## The promise
 
 Every minute spent in the feed should leave Mitch more informed, entertained or curious. Optimise for value, not engagement. No outrage, no sensationalism, no clickbait headlines, no fear. Contentious subjects are fine if covered fairly and with context.

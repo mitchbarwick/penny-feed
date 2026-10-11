@@ -11,7 +11,7 @@ import { useActions } from "@/lib/actions";
 import { nowIso } from "@/lib/ledger";
 import { Prose } from "./Prose";
 import { Sources } from "./Sources";
-import { IconBookmark, IconMore, IconChevron } from "./Icons";
+import { IconBookmark, IconMore, IconChevron, IconClose } from "./Icons";
 import { Cover } from "./Doodle";
 
 const INLINE: Item["format"][] = ["update", "explainer", "rabbit_hole", "circle"];
@@ -60,6 +60,10 @@ export function FeedCard({ entry, onSeen }: { entry: FeedEntry; onSeen?: (key: s
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const [why, setWhy] = useState(false);
+  // Swipe left to dismiss (touch), with the same undo as the button.
+  const [dx, setDx] = useState(0);
+  const [gone, setGone] = useState(false);
+  const touch = useRef<{ x: number; y: number; dragging: boolean } | null>(null);
   const ref = useRef<HTMLElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -92,7 +96,25 @@ export function FeedCard({ entry, onSeen }: { entry: FeedEntry; onSeen?: (key: s
   const away = seriesInfo?.lastOpened ? (Date.now() - Date.parse(seriesInfo.lastOpened)) / 86_400_000 : 0;
 
   return (
-    <article ref={ref} data-key={entry.key} className={`anim-rise py-9 transition-opacity ${isRead && !open ? "opacity-60" : ""}`}>
+    <article
+      ref={ref}
+      data-key={entry.key}
+      className={`anim-rise py-9 ${touch.current?.dragging ? "" : "transition-[opacity,transform] duration-200"} ${isRead && !open ? "opacity-60" : ""}`}
+      style={{ touchAction: "pan-y", transform: dx ? `translateX(${dx}px)` : undefined, opacity: gone ? 0 : dx ? Math.max(0.35, 1 - Math.abs(dx) / 260) : undefined, display: gone ? "none" : undefined }}
+      onTouchStart={(e) => { const t = e.touches[0]; touch.current = { x: t.clientX, y: t.clientY, dragging: false }; }}
+      onTouchMove={(e) => {
+        const st = touch.current; if (!st) return;
+        const t = e.touches[0];
+        const mx = t.clientX - st.x, my = t.clientY - st.y;
+        if (!st.dragging && Math.abs(mx) > 12 && Math.abs(mx) > Math.abs(my) * 1.6) st.dragging = true;
+        if (st.dragging) setDx(Math.min(0, mx));
+      }}
+      onTouchEnd={() => {
+        const st = touch.current; touch.current = null;
+        if (st?.dragging && dx < -90) { setDx(-480); setTimeout(() => { setGone(true); dismiss(item); }, 160); }
+        else setDx(0);
+      }}
+    >
       <Meta item={item} extra={item.format === "series_chapter" && series ? `Chapter ${item.chapter} of ${series.totalChapters}` : item.sample ? "Sample" : undefined} />
 
       {item.format === "series_chapter" && series && (
@@ -144,6 +166,9 @@ export function FeedCard({ entry, onSeen }: { entry: FeedEntry; onSeen?: (key: s
           </Link>
         )}
         <div className="flex items-center gap-1 text-muted">
+          <button aria-label="Dismiss this story" title="Dismiss" className="grid size-11 place-items-center rounded-full hover:bg-surface-2" onClick={() => { setGone(true); dismiss(item); }}>
+            <IconClose />
+          </button>
           <button aria-label={saved ? "Remove from library" : "Save to library"} aria-pressed={saved} className={`grid size-11 place-items-center rounded-full hover:bg-surface-2 ${saved ? "text-terra" : ""}`} onClick={() => toggleSave(item)}>
             <IconBookmark on={saved} />
           </button>

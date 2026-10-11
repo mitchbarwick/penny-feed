@@ -19,7 +19,7 @@ function PersonRow({ p }: { p: Person }) {
       <button className="flex w-full items-center gap-3 py-4 text-left" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className="flex-1">
           <span className="block font-display text-lg font-semibold">{p.name}</span>
-          <span className="text-[0.8rem] text-muted">{p.relationship || "No context yet"} · {CLOSE[p.closeness]}</span>
+          <span className="text-[0.8rem] text-muted">{(p.kind ?? "friend") === "public" ? "Public figure" : CLOSE[p.closeness]} · {p.relationship || "No context yet"}</span>
         </span>
       </button>
       <div className="expand" data-open={open}>
@@ -82,19 +82,21 @@ export function People() {
   const { state, update } = useStore();
   const [name, setName] = useState("");
   const [rel, setRel] = useState("");
+  const [kind, setKind] = useState<"friend" | "public">("friend");
   return (
     <section>
       <p className="text-ink-soft">
         The people whose good news I should pass on. This is separate from your interests: you might not care about an industry, but you'd want to know a friend just made it.
       </p>
-      <form className="mt-5 grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={(e) => {
+      <form className="mt-5 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]" onSubmit={(e) => {
         e.preventDefault();
         if (!name.trim()) return;
-        update((s) => ({ ...s, people: [{ id: uid("p"), name: name.trim(), relationship: rel.trim(), closeness: 2, profiles: [], interestedIn: [], notes: "", updates: [] }, ...s.people] }));
+        update((s) => ({ ...s, people: [{ id: uid("p"), kind, name: name.trim(), relationship: rel.trim(), closeness: 2, profiles: [], interestedIn: [], notes: "", updates: [] }, ...s.people] }));
         setName(""); setRel("");
       }}>
         <input type="text" aria-label="Name" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input type="text" aria-label="Relationship" placeholder="How you know them" value={rel} onChange={(e) => setRel(e.target.value)} />
+        <input type="text" aria-label="Relationship or why" placeholder={kind === "public" ? "What I'd like to hear about" : "How you know them"} value={rel} onChange={(e) => setRel(e.target.value)} />
+        <select aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value as "friend" | "public")}><option value="friend">Someone I know</option><option value="public">Public figure</option></select>
         <button className="btn btn-primary">Add</button>
       </form>
       {state.people.length === 0 ? (

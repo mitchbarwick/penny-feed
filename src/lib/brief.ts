@@ -23,7 +23,7 @@ export interface EditorBrief {
   readerRequests: { at: string; text: string; topic?: string }[];
   seriesFeedback: { seriesId: string; answer: "yes" | "no"; at: string }[];
   activeSeries: { id: string; title: string; chaptersRead: number; totalChapters: number; lastOpened?: string }[];
-  people: { name: string; relationship: string; closeness: number; permittedProfiles: { label: string; url: string }[]; interestedIn: string[]; lastChecked?: string }[];
+  people: { name: string; kind: string; relationship: string; closeness: number; permittedProfiles: { label: string; url: string }[]; interestedIn: string[]; lastChecked?: string }[];
   sourcePrefs: { prioritisedSenders: string[]; excludedSenders: string[]; mutedCategories: string[]; approvedLabels: string[] };
   /** For duplicate avoidance */
   recentlyPublished: { id: string; headline: string; format: string; topics: string[]; publishedAt: string }[];
@@ -70,7 +70,7 @@ export function buildBrief(state: AppState, items: Item[], series: Series[], now
       .map((f) => ({ seriesId: f.seriesId!, answer: f.type === "series-yes" ? "yes" as const : "no" as const, at: f.at })),
     activeSeries: active,
     people: state.people.map((p) => ({
-      name: p.name, relationship: p.relationship, closeness: p.closeness,
+      name: p.name, kind: p.kind ?? "friend", relationship: p.relationship, closeness: p.closeness,
       permittedProfiles: p.profiles.filter((x) => x.permitted).map(({ label, url }) => ({ label, url })),
       interestedIn: p.interestedIn, lastChecked: p.lastChecked,
     })),
