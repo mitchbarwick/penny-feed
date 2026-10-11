@@ -34,6 +34,15 @@ Every minute spent in the feed should leave Mitch more informed, entertained or 
 - Headlines: specific, calm, not generic ("A rocket booster was caught out of the air by a launch tower", not "You won't believe…").
 - `reason`: one honest sentence in Penny's voice on why this is here for Mitch.
 
+## One story, one slot (learned from the second batch)
+
+Several tasks can run close together, so **duplicates by subject** are the editor's job to prevent, not just identical headlines:
+- Before you pick a story, compare it against `recentlyPublished` (headline, topics) **and** the payload files already in `inbox/` from the last 48 hours (other tasks may have written, or be about to submit, the same subject).
+- If the same underlying subject (the same study, event, person, object or paper) is already covered, don't write it again from a different angle or in a different format. Choose another subject. The one exception is a clearly distinct, later development, stated as such.
+- Two sources in common with an existing item is a strong signal that it's a repeat.
+- Across one run, keep to **one** piece per subject, and avoid putting more than two pieces on the same interest in a single run.
+- Spread the interests: look at the topics of `recentlyPublished` and favour High-priority interests the feed hasn't served lately.
+
 ## Dating and freshness (learned from the first runs)
 
 - **Find the date of every source and say it.** Never write "new", "recent", "latest", "this week" or "just announced" unless you have confirmed the source is from the last few days. Otherwise state the date: "a preprint posted in April 2025". Today's date is in the brief's `generatedAt`; compare against it.
