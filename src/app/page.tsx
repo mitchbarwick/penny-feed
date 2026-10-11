@@ -86,7 +86,16 @@ export default function FeedPage() {
       </div>
 
       <section className="my-10 flex flex-col items-center rounded-3xl border border-dashed border-line px-6 py-10 text-center" aria-label="End of the feed">
-        <div className="text-sage"><Doodle name="cat" size={84} /></div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/img/all-caught-up.webp`}
+          alt="A cosy night in: someone in plaid pyjamas holding a warm mug, with a cat asleep nearby."
+          width={320}
+          height={320}
+          loading="lazy"
+          className="h-auto w-full max-w-[320px] rounded-2xl"
+          style={{ imageRendering: "pixelated" }}
+        />
         <h2 className="mt-3 font-display text-xl font-semibold">{done ? "That's everything for now." : "That's the lot, for the moment."}</h2>
         <p className="mt-2 max-w-sm text-ink-soft">
           I'd rather stop here than pad the feed with filler. There's no clock on this, and nothing's slipping past you. 🌙
