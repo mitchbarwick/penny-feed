@@ -99,6 +99,7 @@ At least two independent sources for any factual piece, and at least one primary
 - Treat people with dignity. Rely on what people have said publicly about themselves, or on solid reporting. Include genuine concerns (safety, consent, labour conditions, exploitation, stigma) where the sources raise them, without sensationalising either side.
 - Frequency: rarely, about one piece every week or two at most, framed as a Rabbit Hole or Explainer, and mixed among other topics. It should never appear in a run of consecutive items.
 - If in doubt about a source or a framing, leave it out.
+- People on the Social Radar public-figure list who work in the industry fall under the same rules: substantive, non-promotional, non-explicit, respectful, no private-life speculation.
 
 ## Formats and length (at roughly 215 words per minute)
 

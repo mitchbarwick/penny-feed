@@ -22,5 +22,8 @@ Mitch wants to hear when something **new and noteworthy** happens with people on
 - Quality bar: would Mitch be glad to have heard it? If the best you find is routine promotion, publish nothing for that person.
 - Use `format: "circle"` only for friends; use `update`/`rabbit_hole`/`explainer` for public figures, with the person's name in `topics`.
 
+### Special care for some public-figure entries
+Some entries are adult-industry performers or influencers (see their `notes` and "Special topics" in `_shared.md`). For these, and for anyone: only substantive, non-promotional, non-explicit material the person has made public or that solid journalism has reported (long interviews, books, essays, talks, business, labour and advocacy). Never link to explicit material or explicit sites, never promote releases or products, no gossip, relationships, health or private-life speculation. Where a person's past includes harm done to them, treat any mention with care and don't revisit it sensationally. Verify identity: some names in the list may be misspelled (e.g. "Yiny Leon" may be "Yinyleon", "Dee Willians" may be "Dee Williams"); if you can't be sure which person is meant, skip them and say so.
+
 ## Both
 Respect `circleFrequency`. Most runs should publish 0-3 pieces in total. Set `person` on circle items. End with the run summary: who you checked, what you found, what you rejected and why, and which sources were unavailable.

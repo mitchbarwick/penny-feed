@@ -10,8 +10,8 @@ suggested_schedule: "30 7,19 * * *"   # local time
 **Access: read-only.** You may only use the Gmail tools `search_threads` and `get_thread` (and `list_labels`). Sending, replying, forwarding, drafting, labelling, archiving, trashing and marking messages are all disabled and must never be attempted.
 
 ## Scope (what you may look at)
-- Only mail carrying Mitch's **Reading** label (label id `Label_1087927352073533945`; search with `label:Label_1087927352073533945`), plus these named newsletters wherever they land: **Waking Up** (`from:wakingup.com`), **Flair Futbol** (`from:flairfutbol.com`), **The Maitland Mercury** (`from:news.acm.media`). Honour `sourcePrefs` in the brief: skip `excludedSenders` and `mutedCategories`; favour `prioritisedSenders`.
-- Look back **48 hours** (`newer_than:2d`), newest first, up to 40 threads.
+- Only mail carrying Mitch's **Reading** label (search with `label:Reading`; the label *name* works, the id does not), plus these named newsletters wherever they land: **Waking Up** (`from:wakingup.com`), **Flair Futbol** (`from:flairfutbol.com`), **The Maitland Mercury** (`from:news.acm.media`). Honour `sourcePrefs` in the brief: skip `excludedSenders` and `mutedCategories`; favour `prioritisedSenders`.
+- Look back **7 days** (`newer_than:7d`), newest first, up to 40 threads. To avoid reusing a thread, keep a list of thread **ids only** (never content) in `inbox/inbox-seen.json`; skip ids already listed and add the ones you use.
 - Never touch: bills, receipts, shipping, bank or account notices, school or childcare messages (ClassDojo, preschool, school label), bookings, jobs and recruiters, property listings, anything personal, anything requiring a reply, and anything with sensitive content. If a thread looks personal, skip it without reading further.
 
 ## What to do
