@@ -31,3 +31,5 @@ Short records of choices that shaped the build, with the trade-off.
 **14. Penny's voice, filtered.** UI microcopy and editorial reasons use Penny's warm, cheeky register. Published articles use an editorial subset: no innuendo, minimal emoji, restrained in series. Documented in `editor/_shared.md`.
 
 **15. Deliberately not built.** Notifications, streaks, unread badges, counts of any kind, reactions, public metrics, comments, onboarding gamification. The brief's "respect for attention" is enforced by omission.
+
+**16. Deployed edge functions are bundles, not the repo layout.** The Supabase connector deploys a flat set of files, so the live `ingest` ships `_shared/` inside the function folder (same code as `src/lib`, verified by the same tests). The live `brief` is a compact, self-contained build of `src/lib/brief.ts` (same output shape) to avoid shipping the ledger and ranking code to the edge. If you deploy with the CLI instead (`supabase functions deploy`), the repo layout works as-is.
