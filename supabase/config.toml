@@ -1,0 +1,10 @@
+# Minimal Supabase CLI config. The editor authenticates with its own bearer
+# token (INGEST_TOKEN), not a Supabase user JWT, so JWT verification is off
+# for the two editor-facing functions. The token check is the first thing they do.
+project_id = "penny-feed"
+
+[functions.ingest]
+verify_jwt = false
+
+[functions.brief]
+verify_jwt = false

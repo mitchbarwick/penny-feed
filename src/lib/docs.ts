@@ -1,0 +1,33 @@
+// How personal state is split into rows in the `state` table. Splitting it means
+// a progress write from the phone never overwrites a ledger edit from the laptop.
+import type { AppState } from "./types";
+
+export const DOC_KEYS = ["interests", "prefs", "history", "reader", "feedback"] as const;
+export type DocKey = (typeof DOC_KEYS)[number];
+
+export function toDocs(s: AppState): Record<DocKey, unknown> {
+  return {
+    interests: s.interests,
+    prefs: { prefs: s.prefs, sourcePrefs: s.sourcePrefs, people: s.people },
+    history: s.history,
+    reader: {
+      progress: s.progress, saved: s.saved, dismissed: s.dismissed, followed: s.followed,
+      seriesStarted: s.seriesStarted, feedSnapshot: s.feedSnapshot, feedSnapshotAt: s.feedSnapshotAt,
+      redditImports: s.redditImports, seenIntro: s.seenIntro, theme: s.theme, hideSamples: s.hideSamples,
+    },
+    feedback: s.feedback,
+  };
+}
+
+export function fromDocs(base: AppState, docs: Partial<Record<DocKey, unknown>>): AppState {
+  let s = { ...base };
+  if (docs.interests) s.interests = docs.interests as AppState["interests"];
+  if (docs.prefs) {
+    const p = docs.prefs as Partial<Pick<AppState, "prefs" | "sourcePrefs" | "people">>;
+    s = { ...s, ...p, prefs: { ...base.prefs, ...(p.prefs ?? {}) } };
+  }
+  if (docs.history) s.history = docs.history as AppState["history"];
+  if (docs.reader) s = { ...s, ...(docs.reader as object) };
+  if (docs.feedback) s.feedback = docs.feedback as AppState["feedback"];
+  return s;
+}

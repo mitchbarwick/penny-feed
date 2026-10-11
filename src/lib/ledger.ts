@@ -1,0 +1,533 @@
+// Interest Ledger operations. Every function is pure: (state, input) -> new state.
+// The rule that matters most: behaviour may add evidence, but it may never
+// overwrite something the reader set or locked. Every change leaves a history
+// entry that can be reversed.
+import type {
+  AppState, ChangeOrigin, Evidence, Interest, InterestStatus, Item,
+  PreferenceChange, Preferences, UndoOp,
+} from "./types";
+
+export const uid = (p = "id") => `${p}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
+export const nowIso = () => new Date().toISOString();
+
+export function slug(s: string): string {
+  return s.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+export function norm(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function priorityLabel(w: number): "High" | "Medium" | "Low" {
+  return w >= 0.7 ? "High" : w >= 0.4 ? "Medium" : "Low";
+}
+
+export const defaultPrefs: Preferences = {
+  evergreenBalance: 0.45,
+  discovery: 0.25,
+  focus: 0.3,
+  length: "mixed",
+  technicality: "balanced",
+  circleFrequency: "occasional",
+  activeSeries: 2,
+  formatMix: { update: 0.6, explainer: 0.6, rabbit_hole: 0.8, deep_dive: 0.5, circle: 0.4 },
+  excludedTopics: [],
+  writingStyleNote: "",
+};
+
+// ---------------------------------------------------------------- history
+
+export function withChange(
+  state: AppState,
+  c: Omit<PreferenceChange, "id" | "at"> & { at?: string },
+): { state: AppState; change: PreferenceChange } {
+  const change: PreferenceChange = { id: uid("chg"), at: c.at ?? nowIso(), ...c };
+  return { state: { ...state, history: [change, ...state.history] }, change };
+}
+
+// ---------------------------------------------------------------- matching
+
+/**
+ * Find the interest a topic string belongs to. An exact name or related-subject
+ * match wins; otherwise the longest related phrase appearing as whole words in
+ * the topic. A broad single word ("history") never claims a narrower topic.
+ */
+export function findInterest(interests: Interest[], topic: string): Interest | undefined {
+  const t = norm(topic);
+  if (!t) return undefined;
+  const hasPhrase = (hay: string, needle: string) => ` ${hay} `.includes(` ${needle} `);
+  let best: { i: Interest; score: number } | undefined;
+  for (const i of interests) {
+    const nameN = norm(i.name);
+    let score = 0;
+    for (const n of [i.name, ...i.related].map(norm)) {
+      if (!n) continue;
+      if (n === t) score = Math.max(score, n === nameN ? 100 : 90);
+      else if (n.length > 3 && hasPhrase(t, n)) score = Math.max(score, 10 + n.length);
+      else if (t.includes(' ') && t.length > 3 && hasPhrase(n, t)) score = Math.max(score, 5 + t.length / 2);
+    }
+    if (score > 0 && (!best || score > best.score)) best = { i, score };
+  }
+  return best?.i;
+}
+
+export function matchingInterests(interests: Interest[], topics: string[]): Interest[] {
+  const found = new Map<string, Interest>();
+  for (const t of topics) {
+    const i = findInterest(interests, t);
+    if (i) found.set(i.id, i);
+  }
+  return [...found.values()];
+}
+
+// ---------------------------------------------------------------- mutation primitives
+
+export interface Blocked {
+  blocked: true;
+  reason: string;
+}
+
+function labelFor(i: Interest, field: string) {
+  return `${i.name} · ${field}`;
+}
+
+/**
+ * Change an interest. `origin !== "manual"` is subject to locks and to the
+ * rule that explicit interests are never moved by inference.
+ */
+export function patchInterest(
+  state: AppState,
+  id: string,
+  patch: Partial<Pick<Interest, "name" | "description" | "related" | "weight" | "confidence" | "status" | "locked" | "origin">>,
+  origin: ChangeOrigin,
+  explanation: string,
+): { state: AppState; changes: PreferenceChange[]; blocked?: string } {
+  const cur = state.interests.find((i) => i.id === id);
+  if (!cur) return { state, changes: [], blocked: "No such interest." };
+
+  // Manual and steering changes are the reader's own words; "system" only ever reverts a temporary change the reader asked for.
+  const behavioural = origin !== "manual" && origin !== "steering" && origin !== "system";
+  if (behavioural && cur.locked)
+    return { state, changes: [], blocked: `“${cur.name}” is locked, so I left it alone.` };
+  if (behavioural && cur.origin === "explicit" && ("weight" in patch || "status" in patch))
+    return { state, changes: [], blocked: `You set “${cur.name}” yourself, so I won't change it from behaviour.` };
+
+  let next: Interest = { ...cur };
+  let s = state;
+  const changes: PreferenceChange[] = [];
+  const touch = (field: keyof typeof patch, prev: unknown, val: unknown, label: string) => {
+    if (JSON.stringify(prev) === JSON.stringify(val)) return;
+    const r = withChange(s, {
+      property: `interest:${cur.id}.${String(field)}`,
+      label: labelFor(cur, label),
+      previous: prev,
+      next: val,
+      origin,
+      explanation,
+      undo: { kind: "set-interest", id: cur.id, interest: cur },
+    });
+    s = r.state;
+    changes.push(r.change);
+  };
+
+  if (patch.name !== undefined) { touch("name", cur.name, patch.name, "name"); next.name = patch.name; }
+  if (patch.description !== undefined) { touch("description", cur.description, patch.description, "description"); next.description = patch.description; }
+  if (patch.related !== undefined) { touch("related", cur.related, patch.related, "related subjects"); next.related = patch.related; }
+  if (patch.weight !== undefined) {
+    const w = Math.min(1, Math.max(0.05, patch.weight));
+    touch("weight", cur.weight, w, "priority"); next.weight = w;
+  }
+  if (patch.confidence !== undefined) { touch("confidence", cur.confidence, patch.confidence, "confidence"); next.confidence = patch.confidence; }
+  if (patch.status !== undefined) { touch("status", cur.status, patch.status, "status"); next.status = patch.status; }
+  if (patch.locked !== undefined) { touch("locked", cur.locked, patch.locked, "lock"); next.locked = patch.locked; }
+  if (patch.origin !== undefined) { touch("origin", cur.origin, patch.origin, "origin"); next.origin = patch.origin; }
+
+  if (!changes.length) return { state, changes: [] };
+  // Any manual touch makes an interest explicit, unless the caller says otherwise.
+  if ((origin === "manual" || origin === "steering") && patch.origin === undefined && cur.origin === "inferred" &&
+      ("weight" in patch || "status" in patch)) {
+    next.origin = "explicit";
+  }
+  // An explicit decision clears any temporary revert.
+  if (origin === "manual") { next.until = undefined; next.revertTo = undefined; }
+  next.updatedAt = nowIso();
+  return { state: { ...s, interests: s.interests.map((i) => (i.id === id ? next : i)) }, changes };
+}
+
+export function addEvidence(state: AppState, id: string, ev: Omit<Evidence, "id" | "at">): AppState {
+  return {
+    ...state,
+    interests: state.interests.map((i) =>
+      i.id === id
+        ? {
+            ...i,
+            reinforcedAt: nowIso(),
+            // Evidence can raise confidence, slowly, but never touches locked/explicit values.
+            confidence: i.origin === "explicit" ? i.confidence : Math.min(0.95, i.confidence + ev.confidence * 0.08),
+            evidence: [{ id: uid("ev"), at: nowIso(), ...ev }, ...i.evidence].slice(0, 40),
+          }
+        : i,
+    ),
+  };
+}
+
+export function createInterest(
+  state: AppState,
+  input: {
+    name: string; description?: string; related?: string[]; weight?: number; confidence?: number;
+    origin: "explicit" | "inferred"; status?: InterestStatus; evidence?: Omit<Evidence, "id" | "at">[];
+    locked?: boolean;
+  },
+  origin: ChangeOrigin,
+  explanation: string,
+): { state: AppState; interest: Interest; change: PreferenceChange } {
+  const t = nowIso();
+  const interest: Interest = {
+    id: `${slug(input.name)}-${Math.random().toString(36).slice(2, 5)}`,
+    name: input.name.trim(),
+    description: input.description ?? "",
+    related: input.related ?? [],
+    weight: input.weight ?? 0.5,
+    confidence: input.confidence ?? (input.origin === "explicit" ? 1 : 0.5),
+    origin: input.origin,
+    status: input.status ?? "active",
+    locked: input.locked ?? false,
+    evidence: (input.evidence ?? []).map((e) => ({ id: uid("ev"), at: t, ...e })),
+    createdAt: t,
+    updatedAt: t,
+  };
+  const r = withChange(
+    { ...state, interests: [interest, ...state.interests] },
+    {
+      property: `interest:${interest.id}`,
+      label: `Added “${interest.name}”`,
+      previous: null,
+      next: interest.status,
+      origin,
+      explanation,
+      undo: { kind: "set-interest", id: interest.id, interest: null },
+    },
+  );
+  return { state: r.state, interest, change: r.change };
+}
+
+export function setPref<K extends keyof Preferences>(
+  state: AppState, key: K, value: Preferences[K], origin: ChangeOrigin, explanation: string, label?: string,
+): AppState {
+  const prev = state.prefs[key];
+  if (JSON.stringify(prev) === JSON.stringify(value)) return state;
+  const r = withChange(
+    { ...state, prefs: { ...state.prefs, [key]: value } },
+    {
+      property: `prefs.${String(key)}`,
+      label: label ?? `Preference · ${String(key)}`,
+      previous: prev,
+      next: value,
+      origin,
+      explanation,
+      undo: { kind: "set-pref", key, value: prev },
+    },
+  );
+  return r.state;
+}
+
+/** Reverse a history entry. The reversal is itself recorded (nothing is erased). */
+export function undoChange(state: AppState, changeId: string): { state: AppState; ok: boolean; message: string } {
+  const c = state.history.find((h) => h.id === changeId);
+  if (!c) return { state, ok: false, message: "I couldn't find that change." };
+  if (c.reversedBy) return { state, ok: false, message: "That one's already been reversed." };
+  const op: UndoOp | undefined = c.undo;
+  if (!op || op.kind === "none") return { state, ok: false, message: "That change can't be reversed automatically." };
+
+  let s = state;
+  if (op.kind === "set-pref") {
+    s = { ...s, prefs: { ...s.prefs, [op.key]: op.value } };
+  } else if (op.kind === "set-interest") {
+    if (op.interest === null) s = { ...s, interests: s.interests.filter((i) => i.id !== op.id) };
+    else {
+      const prevI = op.interest;
+      // Only restore the property that this entry changed, so later edits to other fields survive.
+      const field = c.property.split(".")[1] as keyof Interest | undefined;
+      const exists = s.interests.find((i) => i.id === op.id);
+      if (!exists) s = { ...s, interests: [prevI, ...s.interests] };
+      else if (field && field in prevI)
+        s = { ...s, interests: s.interests.map((i) => (i.id === op.id ? { ...i, [field]: (prevI as never)[field], updatedAt: nowIso() } : i)) };
+    }
+  }
+  const r = withChange(s, {
+    property: c.property,
+    label: `Undid: ${c.label}`,
+    previous: c.next,
+    next: c.previous,
+    origin: "manual",
+    explanation: "Reversed by you.",
+    reverses: c.id,
+  });
+  s = {
+    ...r.state,
+    history: r.state.history.map((h) => (h.id === c.id ? { ...h, reversedBy: r.change.id } : h)),
+  };
+  return { state: s, ok: true, message: "Done. Back how it was." };
+}
+
+// ---------------------------------------------------------------- temporary changes
+
+export function expireTemporary(state: AppState, now = new Date()): AppState {
+  let s = state;
+  for (const i of state.interests) {
+    if (i.until && new Date(i.until) <= now && i.revertTo) {
+      const r = patchInterest(
+        { ...s, interests: s.interests.map((x) => (x.id === i.id ? { ...x, locked: false } : x)) },
+        i.id,
+        { status: i.revertTo.status, weight: i.revertTo.weight },
+        "system",
+        "Your temporary change ran out, so this went back to how it was.",
+      );
+      s = {
+        ...r.state,
+        interests: r.state.interests.map((x) =>
+          x.id === i.id ? { ...x, until: undefined, revertTo: undefined, locked: i.locked } : x,
+        ),
+      };
+    }
+  }
+  return s;
+}
+
+// ---------------------------------------------------------------- feedback
+
+const STEP = 0.12;
+
+export interface FeedbackOutcome {
+  state: AppState;
+  changes: PreferenceChange[];
+  /** Plain-English line for the toast. */
+  message: string;
+}
+
+/** Turn a reaction to an item into explicit, inspectable ledger changes. */
+export function applyFeedback(
+  state: AppState,
+  item: Pick<Item, "id" | "topics" | "headline">,
+  type: "more" | "less" | "mute" | "follow",
+  topicOverride?: string,
+): FeedbackOutcome {
+  const topics = topicOverride ? [topicOverride] : item.topics;
+  const main = topics[0];
+  let s = state;
+  const changes: PreferenceChange[] = [];
+  const notes: string[] = [];
+
+  if (type === "follow") {
+    const t = main;
+    if (!s.followed.includes(t)) s = { ...s, followed: [...s.followed, t] };
+    const hit = findInterest(s.interests, t);
+    if (hit) s = addEvidence(s, hit.id, { type: "feedback", explanation: `You followed “${t}” from “${item.headline}”.`, confidence: 0.5 });
+    return { state: s, changes, message: `Following “${t}”.` };
+  }
+
+  if (type === "mute") {
+    const hit = findInterest(s.interests, main);
+    if (hit) {
+      const r = patchInterest(s, hit.id, { status: "muted" }, "manual", `Muted from “${item.headline}”.`);
+      s = r.state; changes.push(...r.changes);
+      return { state: s, changes, message: `Muted “${hit.name}”. You can undo that in Your World.` };
+    }
+    const c = createInterest(s, { name: main, origin: "explicit", status: "muted", weight: 0.3 }, "feedback", `Muted from “${item.headline}”.`);
+    return { state: c.state, changes: [c.change], message: `Muted “${main}”.` };
+  }
+
+  const dir = type === "more" ? 1 : -1;
+  const matched = matchingInterests(s.interests, topics);
+  if (matched.length === 0) {
+    if (dir > 0) {
+      const c = createInterest(
+        s,
+        {
+          name: main, origin: "inferred", weight: 0.45, confidence: 0.4,
+          evidence: [{ type: "feedback", explanation: `You asked for more like “${item.headline}”.`, confidence: 0.6 }],
+        },
+        "feedback",
+        `You asked for more like “${item.headline}”.`,
+      );
+      return { state: c.state, changes: [c.change], message: `Noted. I've added “${main}” as a new, tentative interest.` };
+    }
+    return { state: s, changes, message: "Noted. I'll go easy on things like this." };
+  }
+  for (const i of matched.slice(0, 2)) {
+    const r = patchInterest(
+      s, i.id, { weight: i.weight + dir * STEP }, "feedback",
+      `${dir > 0 ? "More" : "Less"} like “${item.headline}”.`,
+    );
+    if (r.blocked) { notes.push(r.blocked); s = addEvidence(s, i.id, { type: "feedback", explanation: `${dir > 0 ? "Asked for more" : "Asked for less"} like “${item.headline}”.`, confidence: 0.5 }); continue; }
+    s = addEvidence(r.state, i.id, { type: "feedback", explanation: `${dir > 0 ? "Asked for more" : "Asked for less"} like “${item.headline}”.`, confidence: 0.5 });
+    changes.push(...r.changes);
+    notes.push(`${i.name} ${dir > 0 ? "up" : "down"}`);
+  }
+  return { state: s, changes, message: notes.length ? notes.join(" · ") : "Noted." };
+}
+
+// ---------------------------------------------------------------- steering
+
+export type SteerKind = "boost" | "reduce" | "mute" | "exclude" | "add" | "prefer-evergreen" | "prefer-current" | "fewer-series" | "more-series" | "shorter" | "longer";
+
+export interface SteerProposal {
+  id: string;
+  kind: SteerKind;
+  topic: string;
+  /** Days. Undefined = until further notice. */
+  forDays?: number;
+  /** Plain-English description of exactly what will change */
+  summary: string;
+  interestId?: string;
+}
+
+const TEMP_RE = /\b(for (a|the next) (while|week|few days|couple of (days|weeks))|temporarily|this week|for now|right now|lately|recently)\b/i;
+
+function cleanTopic(raw: string): string {
+  return raw
+    .replace(TEMP_RE, "")
+    .replace(/\b(please|thanks|thank you|penny|stuff|things|content|news|articles?|stories|coverage|about|the|some|more|less|any)\b/gi, " ")
+    .replace(/[.!?,;:]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Rule-based reading of plain-English steering. It is deliberately simple and
+ * deliberately shows its working: nothing changes until the reader confirms.
+ */
+export function parseSteering(text: string, interests: Interest[]): SteerProposal[] {
+  const out: SteerProposal[] = [];
+  const parts = text.split(/(?<=[.!?])\s+|\n+|;\s*/).map((p) => p.trim()).filter(Boolean);
+  for (const part of parts) {
+    const forDays = TEMP_RE.test(part) ? (/\bweek\b/i.test(part) ? 7 : /few days|couple of days/i.test(part) ? 4 : 14) : undefined;
+    const lower = part.toLowerCase();
+
+    const push = (kind: SteerKind, topicRaw: string, verb: string, days = forDays) => {
+      const topic = cleanTopic(topicRaw);
+      if (!topic || topic.length < 2) return;
+      const hit = findInterest(interests, topic);
+      const name = hit?.name ?? topic;
+      const when = days ? ` for about ${days === 7 ? "a week" : days === 4 ? "a few days" : "two weeks"}` : "";
+      out.push({
+        id: uid("st"), kind, topic: name, forDays: days, interestId: hit?.id,
+        summary: `${verb} “${name}”${when}${hit ? "" : " (new interest)"}`,
+      });
+    };
+
+    let m: RegExpMatchArray | null;
+    if ((m = lower.match(/(?:i(?:'ve| have) had enough|sick of|bored of|tired of|enough of)\s+(.+?)(?:\.|,|$| news\b)/)) ) {
+      push("reduce", m[1], "Turn down", forDays ?? 14);
+      const rest = lower.split(/\.|,/).slice(1).join(" ");
+      const m2 = rest.match(/show me more\s+(.+)/);
+      if (m2) push("boost", m2[1], "Turn up");
+      continue;
+    }
+    if ((m = lower.match(/(?:never show(?: me)?|don'?t (?:ever )?show me|exclude|block|no more|stop showing(?: me)?)\s+(.+)/))) {
+      push(/no more|stop showing/.test(lower) && forDays ? "mute" : "exclude", m[1], /no more|stop showing/.test(lower) && forDays ? "Mute" : "Exclude");
+      continue;
+    }
+    if ((m = lower.match(/(?:less|fewer|not as much|go easy on|ease off)\s+(.+)/))) {
+      push("reduce", m[1], "Turn down", forDays ?? 14);
+      continue;
+    }
+    if ((m = lower.match(/(?:mute|pause|hide)\s+(.+)/))) {
+      push("mute", m[1], "Mute", forDays ?? 14);
+      continue;
+    }
+    if ((m = lower.match(/(?:i want to learn (?:more )?about|teach me (?:about)?|tell me (?:more )?about|i(?:'m| am) (?:really )?(?:into|curious about|interested in)|get into)\s+(.+)/))) {
+      push("boost", m[1], "Turn up");
+      continue;
+    }
+    if ((m = lower.match(/(?:more|show me more|i want more|bring me more|a lot more)\s+(.+)/))) {
+      push("boost", m[1], "Turn up");
+      continue;
+    }
+    if ((m = lower.match(/(?:i (?:really )?(?:enjoyed|loved|liked) (?:that )?(?:series|story|article)(?: about)?\s*(.*))/))) {
+      out.push({ id: uid("st"), kind: "more-series", topic: cleanTopic(m[1]) || "series", summary: "Look for another series like the one you enjoyed (I'll note it for the editor)" });
+      continue;
+    }
+    if (/\bevergreen|timeless|history|older\b/.test(lower) && /\bmore\b/.test(lower)) {
+      out.push({ id: uid("st"), kind: "prefer-evergreen", topic: "evergreen", summary: "Lean towards timeless stories over current developments" });
+    }
+    if (/\bnews|current|latest|up to date\b/.test(lower) && /\bmore\b/.test(lower) && !out.some((o) => o.kind === "boost")) {
+      out.push({ id: uid("st"), kind: "prefer-current", topic: "current", summary: "Lean towards current developments over timeless stories" });
+    }
+    if (/\bshorter\b/.test(lower)) out.push({ id: uid("st"), kind: "shorter", topic: "length", summary: "Prefer shorter pieces" });
+    if (/\blonger\b/.test(lower)) out.push({ id: uid("st"), kind: "longer", topic: "length", summary: "Prefer longer pieces" });
+  }
+  return out;
+}
+
+export function applySteering(state: AppState, proposals: SteerProposal[], sourceText: string): { state: AppState; summary: string[] } {
+  let s = state;
+  const summary: string[] = [];
+  const why = `You said: “${sourceText.slice(0, 160)}”`;
+  const until = (d?: number) => (d ? new Date(Date.now() + d * 86_400_000).toISOString() : undefined);
+
+  for (const p of proposals) {
+    const cur = p.interestId ? s.interests.find((i) => i.id === p.interestId) : undefined;
+    switch (p.kind) {
+      case "boost": {
+        if (cur) {
+          const r = patchInterest(s, cur.id, { weight: Math.max(cur.weight, 0.85), status: "active" }, "steering", why);
+          s = r.state;
+          if (p.forDays) s = { ...s, interests: s.interests.map((i) => (i.id === cur.id ? { ...i, until: until(p.forDays), revertTo: { status: cur.status, weight: cur.weight } } : i)) };
+          summary.push(`${cur.name}: priority → High${p.forDays ? " (temporary)" : ""}`);
+        } else {
+          const c = createInterest(s, { name: p.topic, origin: "explicit", weight: 0.85, confidence: 1, evidence: [{ type: "steering", explanation: why, confidence: 1 }] }, "steering", why);
+          s = c.state;
+          summary.push(`Added “${p.topic}” as a high-priority interest`);
+        }
+        break;
+      }
+      case "reduce": {
+        if (!cur) { summary.push(`I don't have “${p.topic}” in your ledger, so there was nothing to turn down. I'll note it.`); break; }
+        const r = patchInterest(s, cur.id, { weight: Math.min(cur.weight, 0.2) }, "steering", why);
+        s = r.state;
+        if (p.forDays) s = { ...s, interests: s.interests.map((i) => (i.id === cur.id ? { ...i, until: until(p.forDays), revertTo: { status: cur.status, weight: cur.weight } } : i)) };
+        summary.push(`${cur.name}: priority → Low${p.forDays ? " (temporary)" : ""}`);
+        break;
+      }
+      case "mute": {
+        if (!cur) { summary.push(`“${p.topic}” isn't in your ledger, so nothing to mute.`); break; }
+        const r = patchInterest(s, cur.id, { status: "muted" }, "steering", why);
+        s = r.state;
+        if (p.forDays) s = { ...s, interests: s.interests.map((i) => (i.id === cur.id ? { ...i, until: until(p.forDays), revertTo: { status: cur.status, weight: cur.weight } } : i)) };
+        summary.push(`${cur.name}: muted${p.forDays ? " (temporary)" : ""}`);
+        break;
+      }
+      case "exclude": {
+        if (cur) {
+          const r = patchInterest(s, cur.id, { status: "excluded", locked: true }, "steering", why);
+          s = r.state;
+        } else {
+          const c = createInterest(s, { name: p.topic, origin: "explicit", status: "excluded", weight: 0, confidence: 1, locked: true, evidence: [{ type: "steering", explanation: why, confidence: 1 }] }, "steering", why);
+          s = c.state;
+        }
+        s = setPref(s, "excludedTopics", [...new Set([...s.prefs.excludedTopics, p.topic])], "steering", why, `Excluded topic · ${p.topic}`);
+        summary.push(`${p.topic}: excluded and locked`);
+        break;
+      }
+      case "prefer-evergreen":
+        s = setPref(s, "evergreenBalance", Math.min(1, s.prefs.evergreenBalance + 0.25), "steering", why, "Current vs evergreen");
+        summary.push("More timeless stories, fewer current developments");
+        break;
+      case "prefer-current":
+        s = setPref(s, "evergreenBalance", Math.max(0, s.prefs.evergreenBalance - 0.25), "steering", why, "Current vs evergreen");
+        summary.push("More current developments, fewer timeless stories");
+        break;
+      case "shorter": s = setPref(s, "length", "short", "steering", why, "Reading length"); summary.push("Reading length: shorter"); break;
+      case "longer": s = setPref(s, "length", "long", "steering", why, "Reading length"); summary.push("Reading length: longer"); break;
+      case "more-series":
+        s = { ...s, feedback: [{ id: uid("fb"), type: "reader-request", reason: `${why} (wants a similar series)`, topic: p.topic, at: nowIso(), resulted: [] }, ...s.feedback] };
+        summary.push("Noted for the editor: find a series like the one you enjoyed");
+        break;
+      default: break;
+    }
+  }
+  // Keep the editor's brief up to date with what was said.
+  s = { ...s, feedback: [{ id: uid("fb"), type: "reader-request" as const, reason: sourceText, at: nowIso(), resulted: [] }, ...s.feedback].slice(0, 400) };
+  return { state: s, summary };
+}

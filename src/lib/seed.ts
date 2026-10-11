@@ -1,0 +1,95 @@
+import type { AppState, Evidence, Interest } from "./types";
+import { defaultPrefs } from "./ledger";
+
+const t = () => new Date().toISOString();
+let n = 0;
+const ev = (type: Evidence["type"], explanation: string, confidence: number): Evidence => ({
+  id: `seed-ev-${++n}`, type, explanation, confidence, at: t(),
+});
+
+function interest(p: Partial<Interest> & Pick<Interest, "id" | "name">): Interest {
+  return {
+    description: "", related: [], weight: 0.5, confidence: 0.5, origin: "inferred", status: "active",
+    locked: false, evidence: [], createdAt: t(), updatedAt: t(), ...p,
+  };
+}
+
+/**
+ * Starting ledger. These are the examples from the original brief plus a few
+ * obvious neighbours; all of it is editable, and none of it is gospel.
+ */
+export function seedState(): AppState {
+  return {
+    v: 1,
+    interests: [
+      interest({
+        id: "ai-product-design", name: "AI and product design", origin: "explicit", weight: 0.92, confidence: 1,
+        description: "Interaction design, generative UI, AI-first products and creative tools.",
+        related: ["interaction design", "generative ui", "ai-first products", "creative tools", "design", "ai"],
+        evidence: [ev("stated", "You listed this as a high-priority interest in the original brief.", 1)],
+      }),
+      interest({
+        id: "commercial-spaceflight", name: "Commercial spaceflight", weight: 0.85, confidence: 0.8,
+        description: "Launch vehicles, spacecraft engineering, commercial space businesses and exploration.",
+        related: ["rockets", "launch vehicles", "spaceflight", "space exploration", "space", "spacex", "starship"],
+        evidence: [ev("stated", "Named in the brief as an example of an inferred, high-priority interest.", 0.8)],
+      }),
+      interest({
+        id: "mechanical-watches", name: "Mechanical watches", weight: 0.58, confidence: 0.75,
+        description: "Watchmaking, engineering, design and history.",
+        related: ["horology", "watchmaking", "watches", "escapement", "precision engineering", "craftsmanship"],
+        evidence: [ev("stated", "Named in the brief as a medium-priority, inferred interest.", 0.75)],
+      }),
+      interest({
+        id: "computing-history", name: "Computing history", weight: 0.66, confidence: 0.6,
+        description: "Early graphical interfaces, personal computing and the people who built them.",
+        related: ["graphical interfaces", "xerox parc", "macintosh", "early personal computing", "apple", "retrocomputing"],
+        evidence: [ev("stated", "The brief mentions early graphical interfaces and the making of the Macintosh.", 0.6)],
+      }),
+      interest({
+        id: "design-history", name: "Design history", weight: 0.62, confidence: 0.6,
+        description: "Industrial and graphic design, and why certain ideas became influential.",
+        related: ["industrial design", "typography", "dieter rams", "design principles", "iconography"],
+        evidence: [ev("stated", "The brief asks for design history and influential design principles.", 0.6)],
+      }),
+      interest({
+        id: "science-and-medicine", name: "Science and medicine", weight: 0.5, confidence: 0.5,
+        description: "Discoveries, and clear explanations of how they work. Gene editing is a standing curiosity.",
+        related: ["gene editing", "crispr", "biology", "medicine", "science", "physics", "astronomy"],
+        evidence: [ev("stated", "The brief lists scientific discoveries and gene-editing treatments.", 0.5)],
+      }),
+      interest({
+        id: "engineering-history", name: "Engineering and forgotten inventions", weight: 0.55, confidence: 0.5,
+        description: "Mechanisms, instruments and the long, strange history of making things work.",
+        related: ["engineering", "mechanisms", "inventions", "instruments", "history of science", "navigation"],
+        evidence: [ev("stated", "The brief asks for forgotten inventions, obscure events and engineering stories.", 0.5)],
+      }),
+      interest({
+        id: "grassroots-football", name: "Grassroots football", weight: 0.4, confidence: 0.4,
+        description: "Football, coaching and community clubs.",
+        related: ["football", "soccer", "coaching", "club football", "sport"],
+        evidence: [ev("profile", "Inferred from your involvement in community football. Please confirm or delete.", 0.4)],
+      }),
+      interest({
+        id: "celebrity-controversy", name: "Celebrity controversy", origin: "explicit", status: "excluded", weight: 0,
+        confidence: 1, locked: true, description: "Explicitly excluded. Must not reappear through passive activity.",
+        related: ["celebrity gossip", "celebrity", "gossip", "scandal"],
+        evidence: [ev("stated", "You excluded this in the original brief.", 1)],
+      }),
+    ],
+    prefs: { ...defaultPrefs, excludedTopics: ["Celebrity controversy"] },
+    history: [],
+    people: [],
+    sourcePrefs: { prioritisedSenders: [], excludedSenders: [], mutedCategories: [], approvedLabels: [] },
+    progress: {},
+    saved: [],
+    dismissed: [],
+    followed: [],
+    seriesStarted: {},
+    feedback: [],
+    feedSnapshot: [],
+    theme: "system",
+    seenIntro: false,
+    redditImports: [],
+  };
+}
