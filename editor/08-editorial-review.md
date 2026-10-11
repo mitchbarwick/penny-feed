@@ -13,6 +13,7 @@ For each item check: accuracy, evidence (do the sources say what the piece claim
 
 - Factual error found: submit a `corrections` entry with a plain note (never a silent edit).
 - Item that shouldn't have run (excluded topic, unsupported claim, near-duplicate): add its id to `archive`.
+- Specifically hunt for: stale items described as new or recent; process notes in the body ("could not open", "could not verify"); date or ID inconsistencies between text and sources; key claims resting on Wikipedia or a single enthusiast source. Fix by resubmitting the item with corrected body plus a `corrections` note.
 - Report patterns (repetition, a drifting voice, over-concentration on one subject) in your summary so the other tasks can be adjusted.
 
 Do not publish new content in this task.
