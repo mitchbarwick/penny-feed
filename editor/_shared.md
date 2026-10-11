@@ -31,7 +31,7 @@ Every minute spent in the feed should leave Mitch more informed, entertained or 
 
 ## Before you choose anything
 
-1. Fetch the **brief**: `GET $PENNY_BRIEF_URL` with `Authorization: Bearer $PENNY_INGEST_TOKEN`. In local demo mode, Mitch pastes the brief from Settings instead.
+1. Fetch the **brief** by running exactly: `node scripts/brief.mjs --short` (or without `--short` for everything). Credentials are loaded for you from the env file, so **do not read, source, print or handle the env file or token yourself**. In local demo mode, Mitch pastes the brief from Settings instead.
 2. Obey it, in this order of authority: **`readerRequests` and `exclusions`** (hard rules) > locked or explicit interests > preferences > inferred interests.
 3. Check `recentlyPublished` and `inventory`. If the feed is healthy and nothing is genuinely worth adding, **publish nothing and say so.** Never produce a fixed number of pieces because a schedule fired.
 
@@ -113,14 +113,15 @@ You must never: send or draft email, delete/archive/label/mark-read any message,
 
 ## Submitting
 
-Build one JSON payload (schema in `src/lib/ingest-schema.ts`, examples in `docs/INGESTION.md`), then:
+Work from the project folder (it is already your working directory: don't `cd`). Use **only these plain commands**, one per call, with no shell tricks (no `source`, no process substitution, no `sed -i`, no pipes into the ingest script). Anything else will pause the run waiting for Mitch to approve it.
 
-1. Dry-run it locally if you can: `npm run validate -- payload.json`.
-2. Submit: `node scripts/ingest-file.mjs payload.json` (needs `PENNY_INGEST_URL` and `PENNY_INGEST_TOKEN`), or `curl -X POST "$PENNY_INGEST_URL" -H "Authorization: Bearer $PENNY_INGEST_TOKEN" -H "Content-Type: application/json" --data @payload.json`.
-3. Read the response. `rejected` items include reasons; fix them and resubmit with a **new** `runId`. Re-sending the same `runId` is safe and returns the previous result.
-4. If you cannot reach the endpoint, write the payload to `inbox/<task>-<date>.json` in the project and say so in your summary. Mitch can load it from Settings → Ingestion.
+1. Write the payload with your **Write tool** to `inbox/<task>-<date>-<n>.json`. To fix a payload, use the **Edit tool**, not shell.
+2. Optional dry run: `npm run validate -- inbox/<file>.json`.
+3. Submit: `node scripts/ingest-file.mjs inbox/<file>.json` (it finds the credentials itself).
+4. Read the response. `rejected` items include reasons; fix them and resubmit with a **new** `runId` (re-sending the same `runId` just replays the old result). Re-sending the same `runId` is safe and returns the previous result.
+5. If you cannot reach the endpoint, leave the payload in `inbox/` and say so in your summary. Mitch can load it from Settings → Ingestion.
 
-`runId` format: `<task>-<YYYY-MM-DD>-<n>`. Item `id`s are stable slugs (`lowercase-with-dashes`); to update an item, reuse its id.
+`runId` format: `<task>-<YYYY-MM-DD>-<n>`. Item `id`s are stable slugs (`lowercase-with-dashes`); to update an item, reuse its id. (A harmless `UV_HANDLE_CLOSING` message from Node on Windows after a rejection can be ignored.)
 
 ## End every run with a short summary
 

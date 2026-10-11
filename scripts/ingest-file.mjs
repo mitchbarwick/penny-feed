@@ -6,10 +6,10 @@
 // Exit codes: 0 accepted (even if some items were rejected: read the output),
 //             1 usage/config problem, 2 server rejected the whole payload, 3 network/server error.
 import { readFile } from "node:fs/promises";
+import { loadPennyEnv } from "./penny-env.mjs";
 
 const [file] = process.argv.slice(2);
-const url = process.env.PENNY_INGEST_URL;
-const token = process.env.PENNY_INGEST_TOKEN;
+const { ingestUrl: url, token } = loadPennyEnv();
 
 if (!file || !url || !token) {
   console.error("usage: PENNY_INGEST_URL=… PENNY_INGEST_TOKEN=… node scripts/ingest-file.mjs <payload.json>");

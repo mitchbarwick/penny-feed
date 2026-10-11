@@ -12,7 +12,8 @@
     "sync:functions": "node scripts/sync-shared.mjs",
     "validate": "tsx scripts/validate.ts",
     "typecheck": "tsc --noEmit",
-    "reddit:preview": "tsx scripts/reddit-preview.ts"
+    "reddit:preview": "tsx scripts/reddit-preview.ts",
+    "brief": "node scripts/brief.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
