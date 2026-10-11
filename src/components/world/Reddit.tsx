@@ -63,6 +63,13 @@ export function Reddit() {
               </li>
             ))}
           </ul>
+          {analysis.ignored.length > 0 && (
+            <details className="mt-4 text-sm text-ink-soft">
+              <summary className="cursor-pointer font-semibold">{analysis.ignored.length} recognised but skipped on purpose</summary>
+              <p className="mt-2 text-muted">{analysis.ignored.map((u) => `r/${u}`).join(", ")}</p>
+              <p className="mt-1 text-muted">Memes, jokes, general Q&amp;A, and celebrity-focused communities. I don't turn these into interests. If I've skipped something you do care about, add it by hand in the Interests tab.</p>
+            </details>
+          )}
           {analysis.unknown.length > 0 && (
             <details className="mt-4 text-sm text-ink-soft">
               <summary className="cursor-pointer font-semibold">{analysis.unknown.length} I didn't recognise</summary>

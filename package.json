@@ -11,7 +11,8 @@
     "ingest:file": "node scripts/ingest-file.mjs",
     "sync:functions": "node scripts/sync-shared.mjs",
     "validate": "tsx scripts/validate.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "reddit:preview": "tsx scripts/reddit-preview.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",

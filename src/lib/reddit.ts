@@ -8,7 +8,7 @@ import { createInterest, addEvidence, findInterest, nowIso, uid, withChange, nor
 export function parseSubreddits(text: string): string[] {
   const found = new Set<string>();
   // Accept: r/foo, /r/foo, reddit.com/r/foo, bare words one per line or comma/space separated.
-  const re = /(?:reddit\.com)?\/?r\/([A-Za-z0-9_]{2,21})/g;
+  const re = /(?:reddit\.com\/|(?<![A-Za-z0-9_])\/?)r\/([A-Za-z0-9_]{2,21})(?![A-Za-z0-9_])/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) found.add(m[1].toLowerCase());
   if (found.size === 0) {
@@ -60,6 +60,19 @@ const THEMES = {
   fitness: T("Health and fitness", "Training, nutrition and long-term health.", ["running", "strength training", "nutrition"]),
   outdoors: T("Outdoors and travel", "Walking, camping, travel and places.", ["hiking", "travel", "camping", "australia"]),
   aviation: T("Aviation", "How planes work and the history of flight.", ["aircraft", "airlines", "concorde"]),
+  art: T("Art and illustration", "Drawing, painting, digital art and how artists work.", ["drawing", "painting", "illustration", "watercolour", "pixel art", "procreate"]),
+  mysteries: T("Mysteries and the unexplained", "Unsolved cases, strange sightings and folklore. I'll treat the claims with scepticism.", ["unsolved mysteries", "cryptozoology", "ufos", "folklore"]),
+  philosophy: T("Philosophy and ideas", "Big questions, careful arguments and long-form thinking.", ["philosophy", "ethics", "thought experiments", "essays"]),
+  sustainable: T("Sustainable living and buy-it-for-life", "Owning less and better: durable goods, self-sufficiency, gardening and frugal living.", ["buy it for life", "self-sufficiency", "permaculture", "minimalism", "frugal living", "gardening"]),
+  nintendo: T("Nintendo and cosy games", "Nintendo, Zelda, Animal Crossing, Stardew Valley and the craft behind comfort games.", ["zelda", "animal crossing", "stardew valley", "switch", "pokemon", "retro consoles"]),
+  fantasy: T("Fantasy and science fiction", "Worlds, lore and the craft of speculative fiction.", ["game of thrones", "tolkien", "worldbuilding", "sci-fi", "fantasy"]),
+  aus: T("Australia and local life", "Newcastle, the Hunter, NSW and Australian life, history and culture.", ["newcastle", "hunter valley", "nsw", "australian history", "sydney"]),
+  cars: T("Cars", "Cars, driving and automotive design.", ["automotive design", "ford", "racing games"]),
+  craft: T("Making and craft", "Woodworking, model making, handwriting and watching skilled people work.", ["woodworking", "model making", "penmanship", "artisans"]),
+  menswear: T("Style and grooming", "Menswear, fragrance, grooming and classic style.", ["menswear", "fragrance", "wet shaving", "style"]),
+  drinks: T("Whisky, beer and barbecue", "Scotch, Australian beer and cooking over fire.", ["scotch", "craft beer", "bbq", "smoking meat"]),
+  retro: T("Retro aesthetics and synthwave", "Vaporwave, outrun, and the look and sound of imagined 1980s futures.", ["vaporwave", "synthwave", "outrun", "retro futures"]),
+  politics: T("Current affairs and politics", "Politics and world events. I won't infer your views; I'll cover things fairly and with context.", ["australian politics", "world news", "geopolitics", "policy"]),
   celeb: T("Celebrity controversy", "Gossip and celebrity drama.", []),
 } as const;
 
@@ -106,6 +119,76 @@ const MAP: Record<string, ThemeKey[]> = {
   popculturechat: ["celeb"], entertainment: ["celeb"], celebritygossip: ["celeb"], lipstickalley: ["celeb"], hollywoodgossip: ["celeb"],
 };
 
+// Additional communities, listed by theme for readability.
+const GROUPS: Record<string, string> = {
+  art: "art drawing doodles procreate watercolor westernart delusionalartists pixelart cinemagraphs imaginarylandscapes imaginarysliceoflife 1000words simulated educationalgifs",
+  history: "100yearsago ancientrome colorizedhistory historicalwhatif historyporn wwiipics oldschoolcool feudalwars latin classicaleducation dancarlin askhistorians artefactporn museum historymemes retiredjpg trippinthroughtime",
+  productDesign: "design designporn designthought graphic_design typography fonts uxdesign ui_design web_design idesignedthis productporn crappydesign toogoodofadesign desirepath adporn advertising designjobs photoshop visualization",
+  architecture: "architecture interiordesign interiors roomporn hometours cozyplaces workspaces battlestations abandonedporn mostbeautiful goblincore",
+  tech: "apple applewatch microsoft shortcuts macgaming headphones buildapc pcmasterrace nzxt mechanicalkeyboards customkeyboards wordpress webdev clipchamp",
+  watches: "casio moonswatches",
+  astro: "space astronomy astralobservatory",
+  space: "space",
+  science: "science askscience howstuffworks explainlikeimfive environment skeptic educationalgifs",
+  mysteries: "ufos unresolvedmysteries cryptozoology reddeadmysteries",
+  nature: "natureisfuckinglit naturewasmetal animals farming gardening",
+  pets: "dogs runningwithdogs",
+  sustainable: "buyitforlife wellworn anticonsumption consciousconsumers frugal simpleliving selfsufficiency permaculture",
+  nintendo: "animalcrossing animalcrossingnewhor gamecube nintendo nintendoswitch stardewvalley zelda breath_of_the_wild wiiu smashbros pokemon pokemonconspiracies secretofmana",
+  games: "games gaming minecraft seaofthieves reddeadredemption forzahorizon fallguysgame bossfight chess",
+  fantasy: "asoiaf pureasoiaf pureasoiafart freefolk oldfreefolk lotrmemes fantasy fantheories badscificovers coolscificovers worldbuilding",
+  film: "movies moviedetails classicfilms breakingbad brooklynninenine successiontv arresteddevelopment community thesimpsons jamesbond documentaries hamishandandy",
+  books: "books audiobooks cormacmccarthy writing nosleep",
+  philosophy: "philosophy askphilosophy foodforthought depthhub insightfulquestions changemyview crazyideas showerthoughts samharris socialskills",
+  food: "askculinary cooking gifrecipes mealprepsunday tonightsdinner ausfood masterchefau hauntedchocolatier",
+  drinks: "bbq scotch ausbeer",
+  money: "ausfinance financialplanning upbanking startups entrepreneur productivity zenhabits",
+  fitness: "fitness running bjj mma skateboarding applefitnessplus",
+  football: "aleague soccer coys tottenham newcastleunitedjets worldcup",
+  sport: "nrl olympics sports",
+  aus: "australia ameristralia aussiemaps straya openaustralia newcastle maitland nsw sydney goldcoast centralcoastnsw australianmfa auslaw",
+  cars: "ford carsaustralia forzahorizon",
+  outdoors: "japantravel campingandhiking",
+  music: "listentothis spotify spotifyplaylists rinasawayama",
+  photo: "photography itookapicture",
+  craft: "woodworking diy modelmakers artisanvideos penmanshipporn",
+  menswear: "malefashionadvice wicked_edge fragrance malelifestyle",
+  parenting: "bluey shitmomgroupssay",
+  retro: "vaporwaveaesthetics outrun",
+  politics: "politics australianpolitics libertarian politicalvideo worldnews northkorea",
+};
+for (const [theme, names] of Object.entries(GROUPS)) {
+  if (!(theme in THEMES)) throw new Error(`reddit.ts: unknown theme "${theme}" in GROUPS`);
+  for (const n of names.split(" ")) {
+    const cur = MAP[n] ?? [];
+    if (!cur.includes(theme as ThemeKey)) MAP[n] = [...cur, theme as ThemeKey];
+  }
+}
+
+/**
+ * Communities I recognise but deliberately do NOT turn into interests: memes, joke and
+ * Q&A communities, general-purpose megasubs, celebrity-focused or adult-leaning photo
+ * communities, and graphic footage. Nothing is inferred from them; they're listed in
+ * the review screen so you can see what was skipped and why.
+ */
+const IGNORED = new Set(
+  (
+    "abruptcomposure accidentalrenaissance alexandradaddario alisonbrie ambermidthunder anadearmas anyataylorjoy " +
+    "bryceDallashoward chloegracemoretz christinahendricks elizabethhurley emilyblunt leaseydoux nataliadyer " +
+    "sarahsnook sydneysweeney therebeccaferguson thomasinmckenzie vicakerekes asiangirlsbeingcute beautifulfemales " +
+    "gentlemanboners bigboye askreddit askmen askouija funny me_irl maybemaybemaybe yesyesyesyesno nonononoyes cringe " +
+    "comedyheaven blackmagicfuckery ausmemes memesopdidnotlike darkwingsdankmemes dankchristianmemes kenm onewordjokes " +
+    "unexpectedthuglife whitepeoplegifs slygifs toptalent thisismylifenow tiktokhumor nowaytoday nocontextpics " +
+    "starterpacks irlsmurfing instantbarbarians linkedinlunatics corporatefacepalm blunderyears mallninjashit " +
+    "wheredidthesodago weirddalle photoshopbattles screenshots wallpapers announcements answers place raining " +
+    "interestingasfuck nextfuckinglevel nottheonion videos todayilearned iama youtubehaiku youdontsurf crackheadcraigslist " +
+    "talesfromthepizzaguy sympatheticmonsters gunsmithcats combatfootage scottishpeopletwitter theocho westerngifs " +
+    "whatsinthisthing thingscutinhalfporn humanporn postcollapse"
+  )
+    .toLowerCase()
+    .split(" "),
+);
+
 export interface RedditSuggestion {
   id: string;
   name: string;
@@ -124,39 +207,72 @@ export interface RedditSuggestion {
 export interface RedditAnalysis {
   suggestions: RedditSuggestion[];
   unknown: string[];
+  /** Recognised, but intentionally not turned into interests */
+  ignored: string[];
   total: number;
+}
+
+/** Themes that are the same thing as an interest in the starting ledger, under a different name. */
+const ALIAS: Partial<Record<ThemeKey, string>> = {
+  productDesign: "ai-product-design",
+  science: "science-and-medicine",
+  astro: "science-and-medicine",
+  football: "grassroots-football",
+  sport: "grassroots-football",
+};
+
+/** Match a theme to an existing interest by name, or by a deliberate alias. Never by loose overlap. */
+function findExistingFor(interests: AppState["interests"], theme: Theme, key: ThemeKey) {
+  const byName = interests.find((i) => norm(i.name) === norm(theme.name));
+  if (byName) return byName;
+  const alias = ALIAS[key];
+  return alias ? interests.find((i) => i.id === alias) : undefined;
 }
 
 export function analyseSubreddits(subs: string[], state: AppState): RedditAnalysis {
   const buckets = new Map<ThemeKey, string[]>();
   const unknown: string[] = [];
+  const ignored: string[] = [];
   for (const sub of subs) {
     const keys = MAP[sub.toLowerCase()];
+    if (IGNORED.has(sub.toLowerCase()) && !keys) { ignored.push(sub); continue; }
     if (!keys) { unknown.push(sub); continue; }
     for (const k of keys) buckets.set(k, [...(buckets.get(k) ?? []), sub]);
   }
   const suggestions: RedditSuggestion[] = [];
+  const maxN = Math.max(1, ...[...buckets.values()].map((l) => l.length));
   for (const [key, list] of buckets) {
     const theme = THEMES[key];
     // Confidence: one community is a hint; several is a pattern. Never above 0.85 from this source alone.
-    const confidence = Math.min(0.85, 0.35 + 0.17 * list.length);
-    const hit = findInterest(state.interests, theme.name);
+    const confidence = Math.min(0.85, 0.3 + 0.12 * list.length);
+    // Priority is *relative* to the rest of your subscriptions, so not everything lands on "High".
+    const weight = Math.min(0.8, 0.25 + 0.55 * Math.sqrt(list.length / maxN));
+    const hit = findExistingFor(state.interests, theme, key);
     const gossip = key === "celeb";
+    const political = key === "politics";
+    const strong = list.length >= 3 || Boolean(hit);
     suggestions.push({
       id: key,
       name: theme.name,
       description: theme.description,
       related: [...theme.related],
       confidence,
-      weight: Math.min(0.8, 0.35 + 0.1 * list.length),
+      weight,
       subs: list,
       mergeInto: hit ? { id: hit.id, name: hit.name, locked: hit.locked, origin: hit.origin, status: hit.status } : undefined,
-      approved: !gossip,
-      note: gossip ? "This looks like gossip. I've left it unticked. Tick it only if you actually want it; you could also exclude it." : undefined,
+      // Weak signals (one or two communities) start unticked; so do gossip and politics.
+      approved: strong && !gossip && !political,
+      note: gossip
+        ? "This looks like gossip. I've left it unticked. Tick it only if you actually want it; you could also exclude it."
+        : political
+          ? "Left unticked on purpose. I don't infer political views from subscriptions; add this only if you want politics in the feed."
+          : !strong
+            ? "Only one or two communities, so a weak signal. Unticked; tick it if it's a real interest."
+            : undefined,
     });
   }
   suggestions.sort((a, b) => b.subs.length - a.subs.length || b.confidence - a.confidence);
-  return { suggestions, unknown, total: subs.length };
+  return { suggestions, unknown, ignored, total: subs.length };
 }
 
 /** Commit the approved suggestions. Explicit/locked entries only ever receive evidence. */

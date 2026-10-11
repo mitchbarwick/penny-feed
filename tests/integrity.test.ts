@@ -64,6 +64,32 @@ describe("Reddit onboarding", () => {
     expect(a.unknown).toEqual(["totallyunknownsub"]);
     expect(a.suggestions.every((s) => !s.name.toLowerCase().startsWith("r/"))).toBe(true);
   });
+  it("reads Reddit's own page format and never mistakes user links for subreddits", () => {
+    const pasted = [
+      "* [leave](https://old.reddit.com/subreddits/mine#)[space](https://old.reddit.com/r/space/)",
+      "* [unfollow](https://old.reddit.com/subreddits/mine#)[u/Slynyrd](https://old.reddit.com/user/Slynyrd/)",
+      "* [leave](https://old.reddit.com/subreddits/mine#)[Design](https://old.reddit.com/r/Design/)",
+    ].join("\n");
+    expect(parseSubreddits(pasted)).toEqual(["space", "design"]);
+  });
+  it("spreads priority across your subscriptions instead of calling everything High", () => {
+    const a = analyseSubreddits(["design", "uxdesign", "typography", "space", "astronomy", "watches", "casio", "coys", "soccer", "aleague"], seedState());
+    const weights = a.suggestions.map((s) => s.weight);
+    expect(Math.max(...weights)).toBeLessThanOrEqual(0.8);
+    expect(new Set(weights.map((w) => w.toFixed(2))).size).toBeGreaterThan(1);
+  });
+  it("leaves weak signals, gossip and politics unticked, and skips memes and celebrity communities", () => {
+    const a = analyseSubreddits(["politics", "worldnews", "libertarian", "pixelart", "funny", "me_irl", "sydneysweeney"], seedState());
+    expect(a.suggestions.find((s) => s.name === "Current affairs and politics")?.approved).toBe(false);
+    expect(a.suggestions.find((s) => s.name === "Art and illustration")?.approved).toBe(false); // one community
+    expect(a.ignored.sort()).toEqual(["funny", "me_irl", "sydneysweeney"]);
+  });
+  it("only merges into an existing interest by name or deliberate alias, never loose overlap", () => {
+    const a = analyseSubreddits(["history", "todayilearned2", "gaming", "games", "fantasy", "asoiaf", "webdev"], seedState());
+    expect(a.suggestions.find((s) => s.name === "History")?.mergeInto).toBeUndefined();
+    expect(a.suggestions.find((s) => s.name === "Games and game design")?.mergeInto).toBeUndefined();
+    expect(a.suggestions.find((s) => s.name === "Fantasy and science fiction")?.mergeInto).toBeUndefined();
+  });
   it("leaves gossip unticked by default", () => {
     const a = analyseSubreddits(["celebritygossip", "popculturechat"], seedState());
     expect(a.suggestions[0].approved).toBe(false);
