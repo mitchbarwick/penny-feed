@@ -15,6 +15,6 @@ Search for interesting new developments and evergreen material that fit the Inte
 4. Choose formats to suit the material: an Update only if something genuinely changed; Explainers and Rabbit Holes for evergreen finds.
 5. Research each piece properly (open the sources), write it, and submit.
 
-Publish between 0 and 6 pieces. Zero is a fine answer.
+This task is now a **lane run**: see `editor/lanes.md` and publish a batch of 5-6 pieces for your lane.
 
 Finish with the run summary described in `_shared.md`.
