@@ -7,8 +7,6 @@
 // items are upserted in a single statement so a partial item can't appear in the feed.
 import { createClient } from "@supabase/supabase-js";
 import { ingest } from "../_shared/ingest-core.ts";
-import { fromDocs } from "../_shared/docs.ts";
-import { seedState } from "../_shared/seed.ts";
 import { itemToRow, rowToItem, rowToSeries, seriesToRow, type ItemRow, type SeriesRow } from "../_shared/rows.ts";
 import { json, requireEditor } from "../_lib/http.ts";
 
@@ -58,7 +56,8 @@ Deno.serve(async (req) => {
 
     const docs: Record<string, unknown> = {};
     for (const r of state.data ?? []) docs[r.key] = r.value;
-    const excludedTopics = fromDocs(seedState(), docs).prefs.excludedTopics;
+    // The reader stores its exclusions in the `prefs` document.
+    const excludedTopics = ((docs.prefs as { prefs?: { excludedTopics?: string[] } } | undefined)?.prefs?.excludedTopics) ?? [];
 
     const out = ingest(
       raw,
