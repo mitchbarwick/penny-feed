@@ -126,3 +126,17 @@ create policy state_delete   on public.state          for delete to authenticate
 
 -- Defence in depth: the anon role gets nothing at all.
 revoke all on all tables in schema public from anon;
+
+-- ---------------------------------------------------------------- grants
+-- Written for projects created with "Automatically expose new tables" OFF, so
+-- every privilege is explicit. (Harmless if it was left on.) RLS above still
+-- decides which rows the reader may touch.
+grant usage on schema public to authenticated, service_role;
+
+-- Reader: read content and the log; read/write own state. Nothing else.
+grant select on public.items, public.series, public.item_versions, public.ingestion_jobs to authenticated;
+grant select, insert, update, delete on public.state to authenticated;
+
+-- Editor functions run as service_role (after their own token check).
+grant all on all tables in schema public to service_role;
+grant execute on function public.is_owner() to authenticated;
