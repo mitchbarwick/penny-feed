@@ -49,6 +49,19 @@ The article body is for Mitch, not a lab notebook. Never write "search results I
 
 At least two independent sources for any factual piece, and at least one primary, official, academic or specialist source. Wikipedia and enthusiast sites can orient you but should not carry a key claim alone; if one does, say so in `caveats`. Use the `community` source type only for pages like Wikipedia or forums.
 
+## Special topics
+
+**Mind, consciousness, philosophy, meditation.** Mitch is a high-priority reader here and likes the register of Sam Harris's *Making Sense* and Alex O'Connor's *Within Reason*: rigorous, humane, willing to follow an argument somewhere uncomfortable. Prefer primary arguments, papers, long interviews and careful essays. Present the strongest version of each side. Meditation: practical and sceptical (what the research and the traditions actually say), never wellness marketing. Podcasts are taste anchors, not sources to copy: you may discuss and link an episode or its ideas with attribution, but never reproduce transcripts.
+
+**Quirky true stories** (the vein of *The Constant*): odd, warm, surprising, verifiable. Delight is the point, but the facts must hold up: documented, with the legend separated from the record.
+
+**The adult film industry, sparingly.** Mitch wants occasional glimpses of the industry and its characters through *journalism, memoir, long interviews, book excerpts, Substacks, academic and legal history*, covering labour, business, technology, law, culture, and the people. Rules:
+- Strictly **non-explicit**. No sexual description, no explicit imagery, **never link to explicit material**; cite the book, interview, article or publication instead.
+- **Not promotional and not news-of-the-industry's-output**: no film releases, no performer product launches or promotion, no rankings, no gossip, no scandal-chasing about identifiable private individuals. (Celebrity controversy is excluded; this isn't a way around that.)
+- Treat people with dignity. Rely on what people have said publicly about themselves, or on solid reporting. Include genuine concerns (safety, consent, labour conditions, exploitation, stigma) where the sources raise them, without sensationalising either side.
+- Frequency: rarely, about one piece every week or two at most, framed as a Rabbit Hole or Explainer, and mixed among other topics. It should never appear in a run of consecutive items.
+- If in doubt about a source or a framing, leave it out.
+
 ## Formats and length (at roughly 215 words per minute)
 
 | Format | `format` | Words | Purpose |
