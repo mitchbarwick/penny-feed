@@ -91,11 +91,12 @@ function toSeries(s: IngestSeries, prev: Series | undefined): Series {
 /** Comparable view of an item, ignoring bookkeeping fields. */
 function comparable(i: Item) {
   const { version: _v, status: _s, corrections: _c, publishedAt: _p, ...rest } = i;
-  return rest;
+  // The database stores "no caveats" as [] and reads back "no value" as undefined; treat them as equal.
+  return { ...rest, caveats: rest.caveats ?? [], sample: rest.sample ?? false };
 }
 function comparableSeries(s: Series) {
   const { version: _v, status: _s, ...rest } = s;
-  return rest;
+  return { ...rest, sample: rest.sample ?? false };
 }
 
 export function ingest(

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ingest } from "@/lib/ingest-core";
 import { similarity, canonicalUrl } from "@/lib/ingest-schema";
 import type { Item } from "@/lib/types";
+import { itemToRow, rowToItem } from "@/lib/rows";
 import { chapterBody, emptyContent, goodItem, payload, seriesPayload } from "./helpers";
 
 const run = (p: unknown, current = emptyContent, opts = {}) => {
@@ -72,6 +73,12 @@ describe("duplicate handling", () => {
     const second = run(payload([goodItem()]), current);
     expect(second.result.accepted).toEqual([{ id: "test-item-one", action: "unchanged" }]);
     expect(second.upsertItems).toHaveLength(0);
+  });
+  it("stays unchanged after a database round trip (empty caveats, null columns)", () => {
+    const first = run(payload([goodItem()]));
+    const stored = rowToItem(JSON.parse(JSON.stringify(itemToRow(first.upsertItems[0]))));
+    const second = run(payload([goodItem()]), { items: [stored], series: [] });
+    expect(second.result.accepted).toEqual([{ id: "test-item-one", action: "unchanged" }]);
   });
   it("updates in place when an id is re-submitted with changes, keeping the original date", () => {
     const first = run(payload([goodItem()]));
