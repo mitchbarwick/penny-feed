@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useFeed } from "@/lib/useFeed";
 import { greeting } from "@/lib/dates";
@@ -12,6 +12,18 @@ export default function FeedPage() {
   const { state, update, toast, contentLoading } = useStore();
   const { entries, fresh, setAnchor, ready } = useFeed();
   const restored = useRef(false);
+
+  // "New since you last looked": remembered across visits, held steady for this visit.
+  const [since, setSince] = useState<string | null>(null);
+  useEffect(() => {
+    let prev: string | null = null;
+    try { prev = localStorage.getItem("penny-feed:last-open"); localStorage.setItem("penny-feed:last-open", new Date().toISOString()); } catch { /* ignore */ }
+    setSince(prev);
+  }, []);
+  const newSince = useMemo(
+    () => (since ? entries.filter((e) => e.item && !e.item.sample && e.item.publishedAt > since && state.progress[e.key]?.status !== "read").length : 0),
+    [since, entries, state.progress],
+  );
 
   // Return to exactly where the reader left off.
   useEffect(() => {
@@ -42,7 +54,24 @@ export default function FeedPage() {
         <div className="text-amber" aria-hidden><Doodle name="cup" size={52} /></div>
       </header>
 
-      {fresh > 0 && (
+      {newSince > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-sage-soft/50 px-4 py-3 text-[0.95rem]">
+          <span className="flex-1 text-ink-soft">
+            {newSince === 1 ? "One new story" : `${newSince} new stories`} since you last looked.
+          </span>
+          <button
+            className="btn btn-sm btn-sage"
+            onClick={() => {
+              update((s) => ({ ...s, feedSnapshot: [], feedSnapshotAt: undefined }));
+              try { localStorage.removeItem("penny-feed:feed-anchor"); } catch { /* ignore */ }
+              setSince(null);
+              window.scrollTo({ top: 0, behavior: "instant" });
+            }}
+          >Show them first</button>
+        </div>
+      )}
+
+      {fresh > 0 && newSince === 0 && (
         <p className="mt-2 text-sm text-sage">
           {fresh === 1 ? "One new story has" : `${fresh} new stories have`} settled in further down. Nothing above you moved.
         </p>
