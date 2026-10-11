@@ -289,7 +289,8 @@ export function commitRedditSuggestions(
       explanation: `Subscribed to ${sug.subs.map((x) => "r/" + x).join(", ")}.`,
       confidence: sug.confidence,
     };
-    const existing = findInterest(s.interests, sug.name);
+    // Only the merge target chosen at analysis time (exact name or deliberate alias); never a loose match.
+    const existing = sug.mergeInto ? s.interests.find((i) => i.id === sug.mergeInto!.id) : undefined;
     if (existing) {
       s = addEvidence(s, existing.id, ev);
       // Fill gaps in related subjects only if it's an inferred, unlocked entry.

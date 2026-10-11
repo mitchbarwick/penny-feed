@@ -172,3 +172,16 @@ describe("shared code for the edge functions", () => {
     }
   });
 });
+
+describe("Reddit commit targets", () => {
+  it("never adds evidence to an unrelated interest and creates the themes it suggested", () => {
+    const s = seedState();
+    const a = analyseSubreddits(["gaming", "games", "minecraft", "asoiaf", "fantasy", "worldbuilding"], s);
+    const r = commitRedditSuggestions(s, a.suggestions.filter((x) => x.approved), []);
+    expect(r.created).toBe(2);
+    expect(r.merged).toBe(0);
+    for (const i of r.state.interests.filter((x) => s.interests.some((b) => b.id === x.id))) {
+      expect(i.evidence.length).toBe(s.interests.find((b) => b.id === i.id)!.evidence.length);
+    }
+  });
+});
